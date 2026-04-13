@@ -1,4 +1,4 @@
-import cv2
+
 import numpy as np
 import streamlit as st
 from tensorflow.keras.applications.mobilenet_v2 import (
@@ -16,8 +16,8 @@ def load_model():
     return model
 
 def preprocess_image(image):
-    img = np.array(image.convert("RGB"))
-    img = cv2.resize(img, (224, 224))
+    img = image.convert("RGB").resize((224, 224))
+    img = np.array(img, dtype=np.float32)
     img = preprocess_input(img)
     img = np.expand_dims(img, axis=0)
     return img
