@@ -1,4 +1,3 @@
-
 import numpy as np
 import streamlit as st
 from tensorflow.keras.applications.mobilenet_v2 import (
@@ -9,7 +8,6 @@ from tensorflow.keras.applications.mobilenet_v2 import (
 from PIL import Image
 import matplotlib.pyplot as plt
 import wikipediaapi
-
 
 def load_model():
     model = MobileNetV2(weights="imagenet")
@@ -38,36 +36,49 @@ def get_wikipedia_info(label):
         wiki_ro = wikipediaapi.Wikipedia(language="ro", user_agent="atestat-app/1.0")
         page_ro = wiki_ro.page(label)
         if page_ro.exists():
-            return page_ro.summary[:500]
+            return page_ro.summary[:500], page_ro.fullurl
         wiki_en = wikipediaapi.Wikipedia(language="en", user_agent="atestat-app/1.0")
         page_en = wiki_en.page(label)
         if page_en.exists():
-            return page_en.summary[:500]
-        return None
+            return page_en.summary[:500], page_en.fullurl
+        return None, None
     except:
-        return None
+        return None, None
 
 def plot_predictions_chart(predictions):
     labels = [label for _, label, _ in predictions]
     scores = [score for _, _, score in predictions]
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    bars = ax.barh(labels, scores, color=["#FF4B4B", "#FF8C00", "#FFC300"])
+    fig, ax = plt.subplots(figsize=(7, 3))
+    colors = ["#5C4FC7", "#8B80E0", "#C5C0F0"]
+    bars = ax.barh(labels, scores, color=colors, height=0.5)
     ax.set_xlim(0, 1)
-    ax.set_xlabel("Scor")
-    ax.set_title("Predicții")
+    ax.set_xlabel("Scor", fontsize=11)
+    ax.set_title("Predicții", fontsize=13, fontweight="bold", pad=12)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.tick_params(left=False)
     for bar, score in zip(bars, scores):
         ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
-                f"{score:.2%}", va="center")
+                f"{score:.2%}", va="center", fontsize=10)
+    fig.patch.set_facecolor("#FAFAFA")
+    ax.set_facecolor("#FAFAFA")
     plt.tight_layout()
     return fig
 
-
 def main():
-    st.set_page_config(page_title="Clasificator AI de imagini", page_icon="🖼️", layout="centered")
+    st.set_page_config(page_title="Clasificator AI de imagini", page_icon="🔍", layout="centered")
 
-    st.title("Clasificator AI de imagini")
-    st.write("Încarcă o imagine și lasă inteligența artificială să îți spună ce este în ea!")
+    st.markdown("""
+        <style>
+        .stButton > button {background-color: #5C4FC7; color: white; border-radius: 8px; border: none; width: 100%;}
+        .stButton > button:hover {background-color: #4a3eb5;}
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.title("🔍 Clasificator AI de imagini")
+    st.caption("Încarcă o imagine și lasă inteligența artificială să îți spună ce este în ea.")
+
+    st.divider()
 
     @st.cache_resource
     def load_cached_model():
@@ -75,35 +86,46 @@ def main():
 
     model = load_cached_model()
 
-    uploaded_file = st.file_uploader("Alege o imagine...", type=["jpg", "png"])
+    uploaded_file = st.file_uploader("Alege o imagine...", type=["jpg", "png", "jpeg"])
 
     if uploaded_file is not None:
         pil_image = Image.open(uploaded_file)
         st.image(uploaded_file, caption="Imagine încărcată", use_container_width=True)
-        btn = st.button("Clasifică imaginea")
 
+        st.divider()
+
+        btn = st.button("Clasifică imaginea")
         if btn:
             with st.spinner("Se analizează imaginea..."):
                 predictions = classify_image(model, pil_image)
 
-                if predictions:
-                    st.subheader("Predicții")
-                    for _, label, score in predictions:
-                        st.write(f"**{label}**: {score:.2%}")
+            if predictions:
+                top_label = predictions[0][1].replace("_", " ").title()
+                top_score = predictions[0][2]
 
-                    st.subheader("Grafic predicții")
-                    fig_chart = plot_predictions_chart(predictions)
-                    st.pyplot(fig_chart)
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Predicție principală", top_label)
+                col2.metric("Confidență", f"{top_score:.1%}")
+                col3.metric("Clase analizate", "1000")
 
-                    st.subheader("Informații Wikipedia")
-                    top_label = predictions[0][1].replace("_", " ")
-                    with st.spinner("Se caută informații..."):
-                        info = get_wikipedia_info(top_label)
-                    if info:
-                        st.write(info)
-                    else:
-                        st.write("Nu s-au găsit informații pe Wikipedia.")
+                st.divider()
 
+                st.subheader("Predicții")
+                for _, label, score in predictions:
+                    st.write(f"**{label.replace('_', ' ').title()}**: {score:.2%}")
+
+                st.subheader("Grafic predicții")
+                fig_chart = plot_predictions_chart(predictions)
+                st.pyplot(fig_chart)
+
+                st.subheader("Informații Wikipedia")
+                with st.spinner("Se caută informații..."):
+                    info, url = get_wikipedia_info(predictions[0][1])
+                if info:
+                    st.info(info)
+                    st.markdown(f"[Citește mai mult pe Wikipedia →]({url})")
+                else:
+                    st.write("Nu s-au găsit informații pe Wikipedia.")
 
 if __name__ == "__main__":
     main()
