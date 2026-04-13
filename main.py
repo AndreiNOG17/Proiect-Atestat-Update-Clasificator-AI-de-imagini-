@@ -5,7 +5,7 @@ from tensorflow.keras.applications.mobilenet_v2 import (
     preprocess_input,
     decode_predictions
 )
-from PIL import Image
+from PIL import Image, ImageStat
 import matplotlib.pyplot as plt
 import wikipediaapi
 import time
@@ -34,30 +34,36 @@ def classify_image(model, image):
 def get_wikipedia_info(label):
     try:
         label_cautat = label.replace("_", " ").title()
-
-        # incearca romana direct
         wiki_ro = wikipediaapi.Wikipedia(language="ro", user_agent="atestat-app/1.0")
         page_ro = wiki_ro.page(label_cautat)
         if page_ro.exists():
             return page_ro.summary[:500], page_ro.fullurl
-
-        # cauta in engleza, apoi urmareste link-ul catre romana
         wiki_en = wikipediaapi.Wikipedia(language="en", user_agent="atestat-app/1.0")
         page_en = wiki_en.page(label_cautat)
         if page_en.exists():
-            # verifica daca exista versiunea romana prin langlinks
             langlinks = page_en.langlinks
             if "ro" in langlinks:
                 titlu_ro = langlinks["ro"].title
                 page_ro2 = wiki_ro.page(titlu_ro)
                 if page_ro2.exists():
                     return page_ro2.summary[:500], page_ro2.fullurl
-            # fallback: returneaza engleza
             return page_en.summary[:500], page_en.fullurl
-
         return None, None
     except:
         return None, None
+
+def get_image_stats(image):
+    img_rgb = image.convert("RGB")
+    stat = ImageStat.Stat(img_rgb)
+    brightness = sum(stat.mean) / 3
+    r, g, b = stat.mean
+    if r > g and r > b:
+        dominant = "Roșu"
+    elif g > r and g > b:
+        dominant = "Verde"
+    else:
+        dominant = "Albastru"
+    return round(brightness, 1), dominant
 
 def plot_predictions_chart(predictions):
     labels = [label for _, label, _ in predictions]
@@ -78,6 +84,14 @@ def plot_predictions_chart(predictions):
     ax.set_facecolor("#FAFAFA")
     plt.tight_layout()
     return fig
+
+def confidence_label(score):
+    if score >= 0.90:
+        return "🟢 Foarte ridicată"
+    elif score >= 0.60:
+        return "🟡 Medie"
+    else:
+        return "🔴 Scăzută"
 
 def main():
     st.set_page_config(page_title="Clasificator AI de imagini", page_icon="🔍", layout="centered")
@@ -110,7 +124,12 @@ def main():
         st.image(uploaded_file, caption="Imagine încărcată", use_container_width=True)
 
         w, h = pil_image.size
-        st.caption(f"Fișier: {uploaded_file.name} · Dimensiune: {w}×{h} px")
+        brightness, dominant_color = get_image_stats(pil_image)
+
+        c1, c2, c3 = st.columns(3)
+        c1.caption(f"📄 {uploaded_file.name}")
+        c2.caption(f"📐 {w}×{h} px")
+        c3.caption(f"☀️ Luminozitate: {brightness}/255")
 
         st.divider()
 
@@ -132,7 +151,7 @@ def main():
                 col2.metric("Confidență", f"{top_score:.1%}")
                 col3.metric("Clase analizate", "1000")
 
-                st.progress(float(top_score), text=f"Confidență: {top_score:.1%}")
+                st.progress(float(top_score), text=f"{confidence_label(top_score)} · {top_score:.1%}")
                 st.caption(f"Timp de procesare: {elapsed:.2f} secunde")
 
                 st.divider()
@@ -153,17 +172,6 @@ def main():
                     st.markdown(f"[Citește mai mult pe Wikipedia →]({url})")
                 else:
                     st.write("Nu s-au găsit informații pe Wikipedia.")
-
-                rezultat_txt = "\n".join(
-                    [f"{lbl.replace('_', ' ').title()}: {sc:.2%}" for _, lbl, sc in predictions]
-                )
-                rezultat_txt = f"Fișier: {uploaded_file.name}\nTimp procesare: {elapsed:.2f}s\n\nPredicții:\n{rezultat_txt}"
-                st.download_button(
-                    label="Descarcă rezultatele (.txt)",
-                    data=rezultat_txt,
-                    file_name="rezultate_clasificare.txt",
-                    mime="text/plain"
-                )
 
                 st.session_state.istoric.insert(0, {
                     "nume": uploaded_file.name,
