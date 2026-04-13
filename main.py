@@ -8,6 +8,7 @@ from tensorflow.keras.applications.mobilenet_v2 import (
 from PIL import Image
 import matplotlib.pyplot as plt
 import wikipediaapi
+import time
 
 def load_model():
     model = MobileNetV2(weights="imagenet")
@@ -80,6 +81,9 @@ def main():
 
     st.divider()
 
+    if "istoric" not in st.session_state:
+        st.session_state.istoric = []
+
     @st.cache_resource
     def load_cached_model():
         return load_model()
@@ -92,21 +96,34 @@ def main():
         pil_image = Image.open(uploaded_file)
         st.image(uploaded_file, caption="Imagine încărcată", use_container_width=True)
 
+        w, h = pil_image.size
+        st.caption(f"Fișier: {uploaded_file.name} · Dimensiune: {w}×{h} px")
+
         st.divider()
 
         btn = st.button("Clasifică imaginea")
         if btn:
+            start_time = time.time()
+
             with st.spinner("Se analizează imaginea..."):
                 predictions = classify_image(model, pil_image)
+
+            elapsed = time.time() - start_time
 
             if predictions:
                 top_label = predictions[0][1].replace("_", " ").title()
                 top_score = predictions[0][2]
 
+                if top_score > 0.90:
+                    st.balloons()
+
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Predicție principală", top_label)
                 col2.metric("Confidență", f"{top_score:.1%}")
                 col3.metric("Clase analizate", "1000")
+
+                st.progress(float(top_score), text=f"Confidență: {top_score:.1%}")
+                st.caption(f"Timp de procesare: {elapsed:.2f} secunde")
 
                 st.divider()
 
@@ -126,6 +143,33 @@ def main():
                     st.markdown(f"[Citește mai mult pe Wikipedia →]({url})")
                 else:
                     st.write("Nu s-au găsit informații pe Wikipedia.")
+
+                # download rezultate
+                rezultat_txt = "\n".join(
+                    [f"{lbl.replace('_', ' ').title()}: {sc:.2%}" for _, lbl, sc in predictions]
+                )
+                rezultat_txt = f"Fișier: {uploaded_file.name}\nTimp procesare: {elapsed:.2f}s\n\nPredicții:\n{rezultat_txt}"
+                st.download_button(
+                    label="Descarcă rezultatele (.txt)",
+                    data=rezultat_txt,
+                    file_name="rezultate_clasificare.txt",
+                    mime="text/plain"
+                )
+
+                # salvare in istoric
+                st.session_state.istoric.insert(0, {
+                    "nume": uploaded_file.name,
+                    "predictie": top_label,
+                    "confidenta": f"{top_score:.1%}"
+                })
+                st.session_state.istoric = st.session_state.istoric[:3]
+
+    # istoric sesiune
+    if st.session_state.istoric:
+        st.divider()
+        st.subheader("Istoric sesiune")
+        for item in st.session_state.istoric:
+            st.write(f"🖼️ **{item['nume']}** → {item['predictie']} ({item['confidenta']})")
 
 if __name__ == "__main__":
     main()
