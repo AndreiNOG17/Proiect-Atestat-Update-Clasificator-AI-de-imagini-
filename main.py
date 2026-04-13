@@ -33,15 +33,28 @@ def classify_image(model, image):
 
 def get_wikipedia_info(label):
     try:
-        label = label.replace("_", " ").title()
+        label_cautat = label.replace("_", " ").title()
+
+        # incearca romana direct
         wiki_ro = wikipediaapi.Wikipedia(language="ro", user_agent="atestat-app/1.0")
-        page_ro = wiki_ro.page(label)
+        page_ro = wiki_ro.page(label_cautat)
         if page_ro.exists():
             return page_ro.summary[:500], page_ro.fullurl
+
+        # cauta in engleza, apoi urmareste link-ul catre romana
         wiki_en = wikipediaapi.Wikipedia(language="en", user_agent="atestat-app/1.0")
-        page_en = wiki_en.page(label)
+        page_en = wiki_en.page(label_cautat)
         if page_en.exists():
+            # verifica daca exista versiunea romana prin langlinks
+            langlinks = page_en.langlinks
+            if "ro" in langlinks:
+                titlu_ro = langlinks["ro"].title
+                page_ro2 = wiki_ro.page(titlu_ro)
+                if page_ro2.exists():
+                    return page_ro2.summary[:500], page_ro2.fullurl
+            # fallback: returneaza engleza
             return page_en.summary[:500], page_en.fullurl
+
         return None, None
     except:
         return None, None
@@ -114,9 +127,6 @@ def main():
                 top_label = predictions[0][1].replace("_", " ").title()
                 top_score = predictions[0][2]
 
-                if top_score > 0.90:
-                    st.balloons()
-
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Predicție principală", top_label)
                 col2.metric("Confidență", f"{top_score:.1%}")
@@ -144,7 +154,6 @@ def main():
                 else:
                     st.write("Nu s-au găsit informații pe Wikipedia.")
 
-                # download rezultate
                 rezultat_txt = "\n".join(
                     [f"{lbl.replace('_', ' ').title()}: {sc:.2%}" for _, lbl, sc in predictions]
                 )
@@ -156,7 +165,6 @@ def main():
                     mime="text/plain"
                 )
 
-                # salvare in istoric
                 st.session_state.istoric.insert(0, {
                     "nume": uploaded_file.name,
                     "predictie": top_label,
@@ -164,7 +172,6 @@ def main():
                 })
                 st.session_state.istoric = st.session_state.istoric[:3]
 
-    # istoric sesiune
     if st.session_state.istoric:
         st.divider()
         st.subheader("Istoric sesiune")
