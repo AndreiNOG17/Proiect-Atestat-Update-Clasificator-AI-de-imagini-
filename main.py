@@ -56,19 +56,11 @@ def get_image_stats(image):
     img_rgb = image.convert("RGB")
     stat = ImageStat.Stat(img_rgb)
     brightness = sum(stat.mean) / 3
-    r, g, b = stat.mean
-    if r > g and r > b:
-        dominant = "Roșu"
-    elif g > r and g > b:
-        dominant = "Verde"
-    else:
-        dominant = "Albastru"
-    return round(brightness, 1), dominant
+    return round(brightness, 1)
 
 def plot_predictions_chart(predictions):
     labels = [label for _, label, _ in predictions]
     scores = [score for _, _, score in predictions]
-
     fig, ax = plt.subplots(figsize=(7, 3))
     colors = ["#5C4FC7", "#8B80E0", "#C5C0F0"]
     bars = ax.barh(labels, scores, color=colors, height=0.5)
@@ -103,6 +95,18 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
+    with st.sidebar:
+        st.title("ℹ️ Despre")
+        st.markdown("""
+        **Nume:** Cicortaș Andrei  
+        **An:** 2026  
+        **Proiect de atestat**
+        
+        ---
+        
+        Aplicație de clasificare automată a imaginilor folosind rețele neuronale convoluționale (MobileNetV2) antrenată pe setul de date ImageNet.
+        """)
+
     st.title("🔍 Clasificator AI de imagini")
     st.caption("Încarcă o imagine și lasă inteligența artificială să îți spună ce este în ea.")
 
@@ -124,7 +128,7 @@ def main():
         st.image(uploaded_file, caption="Imagine încărcată", use_container_width=True)
 
         w, h = pil_image.size
-        brightness, dominant_color = get_image_stats(pil_image)
+        brightness = get_image_stats(pil_image)
 
         c1, c2, c3 = st.columns(3)
         c1.caption(f"📄 {uploaded_file.name}")
