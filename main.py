@@ -95,20 +95,13 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    with st.sidebar:
-        st.title("ℹ️ Despre")
-        st.markdown("""
-        **Nume:** Cicortaș Andrei  
-        **An:** 2026  
-        **Proiect de atestat**
-        
-        ---
-        
-        Aplicație de clasificare automată a imaginilor folosind rețele neuronale convoluționale (MobileNetV2) antrenată pe setul de date ImageNet.
-        """)
-
     st.title("🔍 Clasificator AI de imagini")
     st.caption("Încarcă o imagine și lasă inteligența artificială să îți spună ce este în ea.")
+
+    with st.expander("ℹ️ Despre"):
+        st.write("**Nume:** Cicortaș Andrei")
+        st.write("**An:** 2026")
+        st.write("**Proiect de atestat**")
 
     st.divider()
 
