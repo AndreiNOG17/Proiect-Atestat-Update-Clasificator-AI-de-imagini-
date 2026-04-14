@@ -52,12 +52,6 @@ def get_wikipedia_info(label):
     except:
         return None, None
 
-def get_image_stats(image):
-    img_rgb = image.convert("RGB")
-    stat = ImageStat.Stat(img_rgb)
-    brightness = sum(stat.mean) / 3
-    return round(brightness, 1)
-
 def plot_predictions_chart(predictions):
     labels = [label for _, label, _ in predictions]
     scores = [score for _, _, score in predictions]
@@ -119,14 +113,6 @@ def main():
     if uploaded_file is not None:
         pil_image = Image.open(uploaded_file)
         st.image(uploaded_file, caption="Imagine încărcată", use_container_width=True)
-
-        w, h = pil_image.size
-        brightness = get_image_stats(pil_image)
-
-        c1, c2, c3 = st.columns(3)
-        c1.caption(f"📄 {uploaded_file.name}")
-        c2.caption(f"📐 {w}×{h} px")
-        c3.caption(f"☀️ Luminozitate: {brightness}/255")
 
         st.divider()
 
